@@ -20,6 +20,11 @@ from zope.formlib import form
 from zope.interface import implements
 from zope.interface import Interface
 from zope.lifecycleevent import ObjectAddedEvent
+from zope.i18n import translate
+from zope.component import getUtility
+from zope.i18nmessageid import MessageFactory
+from plone.i18n.normalizer.interfaces import IIDNormalizer
+from zope import i18n
 
 
 class GroupByDateAction(SimpleItem):
@@ -160,19 +165,36 @@ class GroupByDateActionExecutor(MoveActionExecutor):
 
         dateFormat = structure
 
-        date = date.strftime(dateFormat)
-
-        folderStructure = [str(p) for p in date.split('/')]
+        if '%B' in dateFormat:
+            translation = getToolByName(self.context, 'translation_service')
+            PLMF = MessageFactory('plonelocales')
+            dateFormat = dateFormat.replace('%B', '%m')
+            date = date.strftime(dateFormat)
+            folderStructure = [str(p) for p in date.split('/')]
+            index = dateFormat.split('/').index('%m')
+            month_msgid = PLMF(translation.month_msgid(folderStructure[index]))
+            try:
+                target_language = i18n.negotiate(self.context.REQUEST)
+            except:
+                target_language = None
+            transale_month = translate(month_msgid, target_language=target_language)
+            folderStructure[index] = transale_month
+        else:
+            date = date.strftime(dateFormat)
+            folderStructure = [str(p) for p in date.split('/')]
 
         container = self.element.container
         language = folder.Language()
+        normalizer = getUtility(IIDNormalizer)
         # We run IRuleExecutor here to make sure other rules will be
         # executed for the newly created folders
         executor = IRuleExecutor(self.context, None)
         for fId in folderStructure:
+            fTitle = fId
+            fId = normalizer.normalize(fId)
             if not fId in folder.objectIds():
-                _createObjectByType(container, folder, id=fId,
-                                    title=fId, description=fId)
+                _createObjectByType(container, folder, id=normalizer.normalize(fId),
+                                    title=fTitle, description=fTitle)
                 folder = folder[fId]
                 # this makes happy multilang sites
                 folder.setLanguage(language)
