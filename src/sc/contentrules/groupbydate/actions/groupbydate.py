@@ -186,6 +186,10 @@ class GroupByDateActionExecutor(MoveActionExecutor):
         container = self.element.container
         language = folder.Language()
         normalizer = getUtility(IIDNormalizer)
+
+        portal_workflow = getToolByName(self.context, 'portal_workflow')
+        pw = portal_workflow.doActionFor
+
         # We run IRuleExecutor here to make sure other rules will be
         # executed for the newly created folders
         executor = IRuleExecutor(self.context, None)
@@ -196,6 +200,7 @@ class GroupByDateActionExecutor(MoveActionExecutor):
                 _createObjectByType(container, folder, id=normalizer.normalize(fId),
                                     title=fTitle, description=fTitle)
                 folder = folder[fId]
+                pw(folder, 'publish')
                 # this makes happy multilang sites
                 folder.setLanguage(language)
                 event = ObjectAddedEvent(folder, aq_parent(folder), fId)
